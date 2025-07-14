@@ -1,0 +1,1 @@
+ /home/kavia/workspace/code-generation/blue-collar-connect-0b74cd82/jobs_app_frontend/.dart_tool/flutter_build/da307c6b2595a5cbc4053fdb3312fea1/native_assets.json: 
