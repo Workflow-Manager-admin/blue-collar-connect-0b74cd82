@@ -15,7 +15,12 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
     final resp = await ApiClient.instance.request('/profile');
     if (resp.isSuccess && resp.data != null) {
-      profile = UserProfile.fromJson(resp.data);
+      try {
+        profile = UserProfile.fromJson(resp.data);
+      } catch (e) {
+        profile = null;
+        error = 'Profile parsing error: $e';
+      }
     } else {
       error = resp.error;
     }

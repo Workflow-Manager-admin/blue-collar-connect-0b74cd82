@@ -16,9 +16,14 @@ class ApplicationsProvider extends ChangeNotifier {
 
     final resp = await ApiClient.instance.request('/applications');
     if (resp.isSuccess && resp.data is List) {
-      applications = (resp.data as List)
-          .map((a) => JobApplication.fromJson(a))
-          .toList();
+      try {
+        applications = (resp.data as List)
+            .map((a) => JobApplication.fromJson(a))
+            .toList();
+      } catch (e) {
+        applications = [];
+        error = 'Applications parsing error: $e';
+      }
     } else {
       error = resp.error;
     }

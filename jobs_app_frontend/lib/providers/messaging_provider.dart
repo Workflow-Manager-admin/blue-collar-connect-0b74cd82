@@ -15,9 +15,14 @@ class MessagingProvider extends ChangeNotifier {
     notifyListeners();
     final resp = await ApiClient.instance.request('/messages');
     if (resp.isSuccess && resp.data is List) {
-      threads = (resp.data as List)
-          .map((t) => MessageThread.fromJson(t))
-          .toList();
+      try {
+        threads = (resp.data as List)
+            .map((t) => MessageThread.fromJson(t))
+            .toList();
+      } catch (e) {
+        threads = [];
+        error = 'Messages parsing error: $e';
+      }
     } else {
       error = resp.error;
     }

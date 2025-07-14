@@ -121,16 +121,15 @@ class AppRoot extends StatefulWidget {
 }
 
 class _AppRootState extends State<AppRoot> {
-  bool isAuthenticated = false;
-
+  // Use Provider for authentication state
   @override
   Widget build(BuildContext context) {
-    // Placeholder: Show onboarding/auth if not authenticated
-    if (!isAuthenticated) {
+    final session = Provider.of<SessionProvider>(context);
+
+    if (!session.isAuthenticated) {
       return OnboardingScreen(onSignedIn: () {
-        setState(() {
-          isAuthenticated = true;
-        });
+        // Simulate sign-in (demo token or just pass any string)
+        session.signIn('demo-token');
       });
     }
     return const TabbedMainShell();

@@ -17,7 +17,13 @@ class JobsProvider extends ChangeNotifier {
 
     final resp = await ApiClient.instance.request('/jobs');
     if (resp.isSuccess && resp.data is List) {
-      jobs = (resp.data as List).map((j) => Job.fromJson(j)).toList();
+      // Add try-catch to identify model parsing bugs
+      try {
+        jobs = (resp.data as List).map((j) => Job.fromJson(j)).toList();
+      } catch (e) {
+        jobs = [];
+        error = 'Job parsing error: $e';
+      }
     } else if (resp.error != null) {
       error = resp.error;
     }
