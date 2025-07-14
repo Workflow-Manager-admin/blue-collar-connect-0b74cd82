@@ -112,7 +112,9 @@ class _AppRootState extends State<AppRoot> {
   }
 }
 
-/// Onboarding/Authentication Screen (Stub for now).
+/// Onboarding/Authentication Navigation Entry.
+///
+/// This screen wraps onboarding and auth (future: show intro, or go to Auth).
 class OnboardingScreen extends StatelessWidget {
   final VoidCallback onSignedIn;
   const OnboardingScreen({super.key, required this.onSignedIn});
@@ -140,14 +142,58 @@ class OnboardingScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 15),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 38),
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 icon: const Icon(Icons.login),
                 label: const Text("Sign In / Register"),
-                onPressed: onSignedIn,
+                onPressed: () {
+                  // Navigate to AuthScreen (stub, for now success auto-login)
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => AuthScreen(onAuthenticated: onSignedIn),
+                  ));
+                },
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Authentication (Sign In/Sign Up) flow placeholder.
+class AuthScreen extends StatelessWidget {
+  final VoidCallback onAuthenticated;
+  const AuthScreen({super.key, required this.onAuthenticated});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Sign In / Register")),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.account_circle, size: 70, color: Color(0xFFa77b00)),
+            const SizedBox(height: 20),
+            const Text("Sign in / Create your account", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 38.0),
+              child: ElevatedButton(
+                onPressed: onAuthenticated,
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.login),
+                    SizedBox(width: 8),
+                    Text("Continue (Demo Auth)"),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text("More authentication features coming soon...", style: TextStyle(color: Colors.grey)),
+          ],
         ),
       ),
     );
@@ -265,11 +311,95 @@ class JobsScreen extends StatelessWidget {
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
               Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => CompanyDetailsScreen(companyName: 'Company A'),
+                builder: (_) => JobDetailsScreen(
+                  jobTitle: 'Job Position #${i+1}',
+                  companyName: 'Company A',
+                ),
               ));
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Job Details Placeholder Wireframe
+class JobDetailsScreen extends StatelessWidget {
+  final String jobTitle;
+  final String companyName;
+  const JobDetailsScreen({super.key, required this.jobTitle, required this.companyName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(jobTitle)),
+      body: Padding(
+        padding: const EdgeInsets.all(22),
+        child: ListView(
+          children: [
+            Text(
+              jobTitle,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              companyName,
+              style: TextStyle(
+                fontSize: 18,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Job Description:",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            const Text("Details about the job position will appear here."),
+            const SizedBox(height: 16),
+            const Divider(),
+            const ListTile(
+              leading: Icon(Icons.place_outlined),
+              title: Text("Location"),
+              subtitle: Text("To be integrated..."),
+            ),
+            const ListTile(
+              leading: Icon(Icons.attach_money_outlined),
+              title: Text("Salary"),
+              subtitle: Text("TBD"),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.assignment_turned_in_outlined),
+              label: const Text("Apply for Job"),
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Notifications Screen Placeholder
+class NotificationsScreen extends StatelessWidget {
+  const NotificationsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Notifications")),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: List.generate(
+            6,
+            (i) => Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.notifications_active, color: Color(0xFFFFB300)),
+                    title: Text("Notification #${i + 1}"),
+                    subtitle: Text("Notification message ${i + 1}..."),
+                  ),
+                )),
       ),
     );
   }
@@ -305,7 +435,20 @@ class MessagesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
+      appBar: AppBar(
+        title: const Text('Messages'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_active_outlined),
+            tooltip: "Notifications",
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const NotificationsScreen(),
+              ));
+            },
+          ),
+        ],
+      ),
       body: ListView.separated(
         itemCount: 6,
         separatorBuilder: (_, __) => const Divider(height: 0),
@@ -341,7 +484,20 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Color(0xFFFFB300)),
+            tooltip: "Notifications",
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const NotificationsScreen(),
+              ));
+            },
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -405,6 +561,7 @@ class SettingsScreen extends StatelessWidget {
 }
 
 /// Company details (for when a job/company tile is tapped).
+// PUBLIC_INTERFACE
 class CompanyDetailsScreen extends StatelessWidget {
   final String companyName;
   const CompanyDetailsScreen({super.key, required this.companyName});
