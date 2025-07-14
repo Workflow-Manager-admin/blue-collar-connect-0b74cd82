@@ -38,7 +38,7 @@ dependencies:
   # For tab navigation, theming, SVG icons, Material support
   flutter_svg: ^2.0.7
   provider: ^6.1.2
-  # (Add other UI, navigation, state management packages as needed)
+  http: ^1.1.0
 
 dev_dependencies:
   flutter_test:

@@ -1,7 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'providers/session_provider.dart';
+import 'providers/jobs_provider.dart';
+import 'providers/applications_provider.dart';
+import 'providers/profile_provider.dart';
+import 'providers/messaging_provider.dart';
 
 void main() {
-  runApp(const BlueCollarConnectApp());
+  runApp(const BlueCollarConnectRoot());
+}
+
+// Entry point that sets up global Providers for networking/integration
+class BlueCollarConnectRoot extends StatelessWidget {
+  const BlueCollarConnectRoot({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SessionProvider()),
+        ChangeNotifierProvider(create: (_) => JobsProvider()),
+        ChangeNotifierProvider(create: (_) => ApplicationsProvider()),
+        ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        ChangeNotifierProvider(create: (_) => MessagingProvider()),
+      ],
+      child: const BlueCollarConnectApp(),
+    );
+  }
 }
 
 /// The main app for Blue Collar Connect.
