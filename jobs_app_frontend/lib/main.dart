@@ -5,6 +5,7 @@ import 'providers/jobs_provider.dart';
 import 'providers/applications_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/messaging_provider.dart';
+import 'api/models.dart';
 
 void main() {
   runApp(const BlueCollarConnectRoot());
@@ -419,6 +420,9 @@ class JobDetailsScreen extends StatelessWidget {
               companyId: "",
               companyName: "",
               location: "",
+              description: "",
+              salary: "",
+              applied: false,
             ));
 
     return FutureBuilder(
@@ -882,7 +886,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<MessagingProvider>(context);
     final thread = provider.threads
-        .firstWhere((t) => t.id == widget.threadId, orElse: () => MessageThread(id: widget.threadId, contactName: "", messages: []));
+        .firstWhere(
+          (t) => t.id == widget.threadId,
+          orElse: () => MessageThread(
+            id: widget.threadId,
+            contactName: "Unknown",
+            messages: const [],
+          ),
+        );
 
     return Scaffold(
         appBar: AppBar(title: Text(thread.contactName.isNotEmpty ? thread.contactName : "Chat")),
