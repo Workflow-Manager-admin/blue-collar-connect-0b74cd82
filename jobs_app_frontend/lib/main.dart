@@ -259,6 +259,21 @@ class _TabbedMainShellState extends State<TabbedMainShell> {
       icon: Icon(Icons.settings_outlined), label: "Settings"),
   ];
 
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // On first build, auto-fetch core app data.
+    if (!_initialized) {
+      Provider.of<JobsProvider>(context, listen: false).fetchJobs();
+      Provider.of<ApplicationsProvider>(context, listen: false).fetchApplications();
+      Provider.of<MessagingProvider>(context, listen: false).fetchThreads();
+      Provider.of<ProfileProvider>(context, listen: false).fetchProfile();
+      _initialized = true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -308,101 +323,213 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-/// Jobs list and search screen with filter and search bar.
+/// Jobs list and search screen.
+/// Integrates the provider and renders real data from the backend.
 class JobsScreen extends StatelessWidget {
   const JobsScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
+    final jobsProvider = Provider.of<JobsProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Jobs'),
         actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.map_outlined), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.search), onPressed: () {
+            // (Optional) Implement search feature
+          }),
+          IconButton(icon: const Icon(Icons.map_outlined), onPressed: () {
+            // (Optional) Implement map view
+          }),
         ],
       ),
-      body: ListView.separated(
-        itemCount: 10,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        separatorBuilder: (_, __) => const SizedBox(height: 2),
-        itemBuilder: (context, i) => Card(
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.tertiary,
-              child: const Icon(Icons.work, color: Colors.white),
-            ),
-            title: Text('Job Position #${i+1}'),
-            subtitle: const Text('Company A'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => JobDetailsScreen(
-                  jobTitle: 'Job Position #${i+1}',
-                  companyName: 'Company A',
+      body: RefreshIndicator(
+        onRefresh: () async => await jobsProvider.fetchJobs(),
+        child: Builder(
+          builder: (_) {
+            if (jobsProvider.isLoading && jobsProvider.jobs.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (jobsProvider.error != null) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text("Error loading jobs: ${jobsProvider.error}",
+                        style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.refresh),
+                      label: const Text("Retry"),
+                      onPressed: () => jobsProvider.fetchJobs(),
+                    ),
+                  ],
                 ),
-              ));
-            },
-          ),
+              );
+            }
+            final jobs = jobsProvider.jobs;
+            if (jobs.isEmpty) {
+              return const Center(
+                child: Text("No jobs found.", style: TextStyle(color: Colors.grey)),
+              );
+            }
+            return ListView.separated(
+              itemCount: jobs.length,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              separatorBuilder: (_, __) => const SizedBox(height: 2),
+              itemBuilder: (context, i) {
+                final job = jobs[i];
+                return Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Theme.of(context).colorScheme.tertiary,
+                      child: const Icon(Icons.work, color: Colors.white),
+                    ),
+                    title: Text(job.title),
+                    subtitle: Text(job.companyName),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => JobDetailsScreen(jobId: job.id),
+                      ));
+                    },
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
     );
   }
 }
 
-/// Job Details Placeholder Wireframe
+/// Job Details Screen that wires up live data and apply-to-job.
 class JobDetailsScreen extends StatelessWidget {
-  final String jobTitle;
-  final String companyName;
-  const JobDetailsScreen({super.key, required this.jobTitle, required this.companyName});
+  final String jobId;
+  const JobDetailsScreen({super.key, required this.jobId});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(jobTitle)),
-      body: Padding(
-        padding: const EdgeInsets.all(22),
-        child: ListView(
-          children: [
-            Text(
-              jobTitle,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              companyName,
-              style: TextStyle(
-                fontSize: 18,
-                color: Theme.of(context).colorScheme.secondary,
+    final jobsProvider = Provider.of<JobsProvider>(context);
+    final job =
+        jobsProvider.jobs.firstWhere((j) => j.id == jobId, orElse: () => Job(
+              id: jobId,
+              title: "Loading...",
+              companyId: "",
+              companyName: "",
+              location: "",
+            ));
+
+    return FutureBuilder(
+      future: job.companyName.isEmpty ? jobsProvider.fetchJobs() : Future.value(),
+      builder: (context, snapshot) {
+        final isLoading = jobsProvider.isLoading && job.companyName.isEmpty;
+        final hasError = jobsProvider.error != null && job.companyName.isEmpty;
+
+        if (isLoading) {
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
+        }
+        if (hasError) {
+          return Scaffold(
+            appBar: AppBar(title: const Text("Job Details")),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("Error loading job: ${jobsProvider.error}",
+                      style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text("Retry"),
+                    onPressed: () => jobsProvider.fetchJobs(),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              "Job Description:",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          );
+        }
+        return Scaffold(
+          appBar: AppBar(title: Text(job.title)),
+          body: Padding(
+            padding: const EdgeInsets.all(22),
+            child: ListView(
+              children: [
+                Text(
+                  job.title,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(job.companyName,
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Theme.of(context).colorScheme.secondary,
+                    )),
+                const SizedBox(height: 16),
+                const Text(
+                  "Job Description:",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(job.description ?? "No description provided."),
+                const SizedBox(height: 16),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.place_outlined),
+                  title: const Text("Location"),
+                  subtitle: Text(job.location),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.attach_money_outlined),
+                  title: const Text("Salary"),
+                  subtitle: Text(job.salary ?? "TBD"),
+                ),
+                const SizedBox(height: 18),
+                Builder(
+                  builder: (context) {
+                    final isApplying = jobsProvider.isLoading;
+                    return ElevatedButton.icon(
+                      icon: isApplying
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.assignment_turned_in_outlined),
+                      label: Text(job.applied
+                          ? "Already Applied"
+                          : isApplying
+                              ? "Applying..."
+                              : "Apply for Job"),
+                      onPressed: (job.applied || isApplying)
+                          ? null
+                          : () async {
+                              final result =
+                                  await jobsProvider.applyToJob(job.id);
+                              if (result) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text("Application sent!")),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content:
+                                          Text(jobsProvider.error ?? "Error")),
+                                );
+                              }
+                            },
+                    );
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            const Text("Details about the job position will appear here."),
-            const SizedBox(height: 16),
-            const Divider(),
-            const ListTile(
-              leading: Icon(Icons.place_outlined),
-              title: Text("Location"),
-              subtitle: Text("To be integrated..."),
-            ),
-            const ListTile(
-              leading: Icon(Icons.attach_money_outlined),
-              title: Text("Salary"),
-              subtitle: Text("TBD"),
-            ),
-            const SizedBox(height: 18),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.assignment_turned_in_outlined),
-              label: const Text("Apply for Job"),
-              onPressed: () {},
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -431,34 +558,73 @@ class NotificationsScreen extends StatelessWidget {
 }
 
 /// Applications status and management screen.
+/// Renders real application data and states from API via provider.
 class ApplicationsScreen extends StatelessWidget {
   const ApplicationsScreen({super.key});
   @override
   Widget build(BuildContext context) {
+    final applicationsProvider = Provider.of<ApplicationsProvider>(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('My Applications')),
-      body: ListView.separated(
-        itemCount: 5,
-        padding: const EdgeInsets.all(10),
-        separatorBuilder: (_, __) => const SizedBox(height: 5),
-        itemBuilder: (context, i) => Card(
-          child: ListTile(
-            leading: const Icon(Icons.assignment_turned_in, color: Color(0xFFa77b00)),
-            title: Text('Application #${i+1}'),
-            subtitle: Text('Status: ${["Pending", "Viewed", "Interview", "Offer", "Rejected"][i]}'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          ),
-        ),
+      body: RefreshIndicator(
+        onRefresh: () async => await applicationsProvider.fetchApplications(),
+        child: Builder(builder: (context) {
+          if (applicationsProvider.isLoading && applicationsProvider.applications.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (applicationsProvider.error != null) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("Error: ${applicationsProvider.error}",
+                      style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text("Retry"),
+                    onPressed: () => applicationsProvider.fetchApplications(),
+                  ),
+                ],
+              ),
+            );
+          }
+          final applications = applicationsProvider.applications;
+          if (applications.isEmpty) {
+            return const Center(
+              child: Text("No applications yet.", style: TextStyle(color: Colors.grey)),
+            );
+          }
+          return ListView.separated(
+            itemCount: applications.length,
+            padding: const EdgeInsets.all(10),
+            separatorBuilder: (_, __) => const SizedBox(height: 5),
+            itemBuilder: (context, i) {
+              final a = applications[i];
+              return Card(
+                child: ListTile(
+                  leading: const Icon(Icons.assignment_turned_in, color: Color(0xFFa77b00)),
+                  title: Text("Application #${a.id}"),
+                  subtitle: Text("Status: ${a.status}"),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                ),
+              );
+            },
+          );
+        }),
       ),
     );
   }
 }
 
-/// Messaging screen with chats.
+/// Messaging screen with chats fetched from backend.
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
   @override
   Widget build(BuildContext context) {
+    final messagingProvider = Provider.of<MessagingProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Messages'),
@@ -474,25 +640,62 @@ class MessagesScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView.separated(
-        itemCount: 6,
-        separatorBuilder: (_, __) => const Divider(height: 0),
-        itemBuilder: (_, i) => ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Theme.of(context).colorScheme.secondary,
-            child: const Icon(Icons.person, color: Colors.white),
-          ),
-          title: Text('Contact Name ${i + 1}'),
-          subtitle: const Text('Last message preview...'),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-          onTap: () {
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => ChatDetailScreen(
-                contactName: 'Contact Name ${i+1}',
+      body: RefreshIndicator(
+        onRefresh: () async => await messagingProvider.fetchThreads(),
+        child: Builder(builder: (context) {
+          if (messagingProvider.isLoading && messagingProvider.threads.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (messagingProvider.error != null) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("Error: ${messagingProvider.error}",
+                      style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text("Retry"),
+                    onPressed: () => messagingProvider.fetchThreads(),
+                  ),
+                ],
               ),
-            ));
-          },
-        ),
+            );
+          }
+          final threads = messagingProvider.threads;
+          if (threads.isEmpty) {
+            return const Center(
+              child: Text("No messages yet.", style: TextStyle(color: Colors.grey)),
+            );
+          }
+          return ListView.separated(
+            itemCount: threads.length,
+            separatorBuilder: (_, __) => const Divider(height: 0),
+            itemBuilder: (context, i) {
+              final thread = threads[i];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  child: const Icon(Icons.person, color: Colors.white),
+                ),
+                title: Text(thread.contactName),
+                subtitle: thread.messages.isNotEmpty
+                    ? Text(thread.messages.last.text,
+                        overflow: TextOverflow.ellipsis)
+                    : const Text("No messages yet.", style: TextStyle(color: Colors.grey)),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => ChatDetailScreen(
+                      threadId: thread.id,
+                    ),
+                  ));
+                },
+              );
+            },
+          );
+        }),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {/* Compose message */},
@@ -503,11 +706,13 @@ class MessagesScreen extends StatelessWidget {
   }
 }
 
-/// User profile screen (view and basic edit stub).
+/// User profile screen (view and basic edit, using real backend data).
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
   @override
   Widget build(BuildContext context) {
+    final profileProvider = Provider.of<ProfileProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
@@ -523,23 +728,57 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const CircleAvatar(
-            radius: 40,
-            backgroundColor: Color(0xFFa77b00),
-            child: Icon(Icons.person, color: Colors.white, size: 55),
-          ),
-          const SizedBox(height: 18),
-          const Center(child: Text('User Name', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-          const SizedBox(height: 7),
-          const Center(child: Text('worker@email.com', style: TextStyle(fontSize: 14, color: Colors.grey))),
-          const SizedBox(height: 26),
-          _buildProfileOption(context, 'Edit Profile', Icons.edit, () {}),
-          _buildProfileOption(context, 'My Network', Icons.people_alt_outlined, () {}),
-          _buildProfileOption(context, 'Saved Jobs', Icons.bookmark_outline, () {}),
-        ],
+      body: RefreshIndicator(
+        onRefresh: () async => await profileProvider.fetchProfile(),
+        child: Builder(builder: (context) {
+          if (profileProvider.isLoading && profileProvider.profile == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (profileProvider.error != null && profileProvider.profile == null) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("Error: ${profileProvider.error}",
+                      style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text("Retry"),
+                    onPressed: () => profileProvider.fetchProfile(),
+                  ),
+                ],
+              ),
+            );
+          }
+          final user = profileProvider.profile;
+          if (user == null) {
+            return const Center(child: Text("No profile data.", style: TextStyle(color: Colors.grey)));
+          }
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: const Color(0xFFa77b00),
+                backgroundImage: user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
+                child: user.avatarUrl == null ? const Icon(Icons.person, color: Colors.white, size: 55) : null,
+              ),
+              const SizedBox(height: 18),
+              Center(child: Text(user.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+              const SizedBox(height: 7),
+              Center(child: Text(user.email, style: const TextStyle(fontSize: 14, color: Colors.grey))),
+              if ((user.bio ?? "").isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Center(child: Text(user.bio!, style: const TextStyle(fontSize: 15))),
+              ],
+              const SizedBox(height: 26),
+              _buildProfileOption(context, 'Edit Profile', Icons.edit, () {}),
+              _buildProfileOption(context, 'My Network', Icons.people_alt_outlined, () {}),
+              _buildProfileOption(context, 'Saved Jobs', Icons.bookmark_outline, () {}),
+            ],
+          );
+        }),
       ),
     );
   }
@@ -614,38 +853,73 @@ class CompanyDetailsScreen extends StatelessWidget {
   }
 }
 
-/// Chat details for a specific contact.
-class ChatDetailScreen extends StatelessWidget {
-  final String contactName;
-  const ChatDetailScreen({super.key, required this.contactName});
+/// Chat details for a specific thread, loading and sending real messages.
+class ChatDetailScreen extends StatefulWidget {
+  final String threadId;
+  const ChatDetailScreen({super.key, required this.threadId});
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(contactName)),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: const [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ChatBubble(isFromMe: false, text: "Hi, are you available for a job interview?"),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ChatBubble(isFromMe: true, text: "Yes, I'm interested!"),
-                ),
-              ],
-            ),
-          ),
-          _buildMessageInputBar(),
-        ],
-      ),
-    );
+  State<ChatDetailScreen> createState() => _ChatDetailScreenState();
+}
+
+class _ChatDetailScreenState extends State<ChatDetailScreen> {
+  final _controller = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
-  Widget _buildMessageInputBar() {
+  Future<void> _sendMessage(MessagingProvider provider) async {
+    if (_controller.text.trim().isEmpty) return;
+    setState(() => _sending = true);
+    await provider.sendMessage(widget.threadId, _controller.text.trim());
+    _controller.clear();
+    setState(() => _sending = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<MessagingProvider>(context);
+    final thread = provider.threads
+        .firstWhere((t) => t.id == widget.threadId, orElse: () => MessageThread(id: widget.threadId, contactName: "", messages: []));
+
+    return Scaffold(
+        appBar: AppBar(title: Text(thread.contactName.isNotEmpty ? thread.contactName : "Chat")),
+        body: Column(
+          children: [
+            if (provider.isLoading && thread.messages.isEmpty)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else ...[
+              Expanded(
+                child: thread.messages.isEmpty
+                    ? const Center(child: Text("No messages yet.", style: TextStyle(color: Colors.grey)))
+                    : ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          for (final m in thread.messages)
+                            Align(
+                              alignment: m.senderId == "me" // Replace with proper user state if available
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: ChatBubble(isFromMe: m.senderId == "me", text: m.text),
+                            ),
+                        ],
+                      ),
+              ),
+            ],
+            if (provider.error != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text("Error: ${provider.error}", style: const TextStyle(color: Colors.red)),
+              ),
+            _buildMessageInputBar(provider),
+          ],
+        ));
+  }
+
+  Widget _buildMessageInputBar(MessagingProvider provider) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       color: Colors.grey.shade100,
@@ -653,12 +927,22 @@ class ChatDetailScreen extends StatelessWidget {
         top: false,
         child: Row(
           children: [
-            Expanded(child: TextField(decoration: const InputDecoration(hintText: "Type your message..."))),
+            Expanded(
+                child: TextField(
+              controller: _controller,
+              decoration: const InputDecoration(hintText: "Type your message..."),
+              enabled: !_sending,
+              onSubmitted: (_) => _sendMessage(provider),
+            )),
             const SizedBox(width: 7),
-            IconButton(
-              icon: const Icon(Icons.send, color: Color(0xFFa77b00)),
-              onPressed: () {},
-            ),
+            _sending
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: SizedBox(width: 25, height: 25, child: CircularProgressIndicator(strokeWidth: 2)))
+                : IconButton(
+                    icon: const Icon(Icons.send, color: Color(0xFFa77b00)),
+                    onPressed: () => _sendMessage(provider),
+                  ),
           ],
         ),
       ),
