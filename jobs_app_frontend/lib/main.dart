@@ -6,8 +6,18 @@ import 'providers/applications_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/messaging_provider.dart';
 import 'api/models.dart';
+import 'package:responsive_framework/responsive_framework.dart';
+import 'package:flutter_web_plugins/url_strategy.dart' as web_plugins;
+import 'dart:io' show Platform;
 
+/// Set up web compatibility and responsive design from main entry
 void main() {
+  // Set path-based routing for web
+  try {
+    web_plugins.usePathUrlStrategy();
+  } catch (_) {
+    // Ignore exceptions if running on non-web platforms.
+  }
   runApp(const BlueCollarConnectRoot());
 }
 
@@ -42,13 +52,26 @@ class BlueCollarConnectApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Blue Collar Connect',
+      debugShowCheckedModeBanner: false,
+      builder: (context, child) => ResponsiveWrapper.builder(
+        child,
+        minWidth: 360,
+        defaultScale: true,
+        breakpoints: [
+          ResponsiveBreakpoint.autoScale(360, name: MOBILE),
+          ResponsiveBreakpoint.autoScale(600, name: TABLET),
+          ResponsiveBreakpoint.autoScale(800, name: DESKTOP),
+          ResponsiveBreakpoint.autoScale(1700, name: 'XL'),
+        ],
+        background: Container(color: const Color(0xFFF5F5F5)),
+      ),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.light(
           primary: const Color(0xFF583400),
           secondary: const Color(0xFFa77b00),
           tertiary: const Color(0xFFFFB300),
-          surface: const Color(0xFFF5F5F5), // Replaces deprecated background
+          surface: const Color(0xFFF5F5F5),
         ),
         scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         appBarTheme: const AppBarTheme(
@@ -73,6 +96,7 @@ class BlueCollarConnectApp extends StatelessWidget {
             textStyle: const TextStyle(fontSize: 16),
           ),
         ),
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
@@ -80,7 +104,7 @@ class BlueCollarConnectApp extends StatelessWidget {
           primary: const Color(0xFF583400),
           secondary: const Color(0xFFa77b00),
           tertiary: const Color(0xFFFFB300),
-          surface: Colors.black, // Replaces deprecated background
+          surface: Colors.black,
         ),
         scaffoldBackgroundColor: Colors.black,
         appBarTheme: const AppBarTheme(
@@ -105,6 +129,7 @@ class BlueCollarConnectApp extends StatelessWidget {
             textStyle: const TextStyle(fontSize: 16),
           ),
         ),
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       themeMode: ThemeMode.system,
       home: const AppRoot(),

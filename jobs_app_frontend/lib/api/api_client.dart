@@ -25,7 +25,25 @@ class ApiClient {
   factory ApiClient() => instance;
 
   // Example: adjust this URL to your backend API root (http://localhost:5000/api)
-  String baseUrl = "http://10.0.2.2:5001/api"; // Use emulator's loopback on Android
+  // Updated for web compatibility: uses localhost on web, emulator IP on Android.
+  String get baseUrl {
+    if (identical(0, 0.0)) {
+      // Will never happen, placeholder for kIsWeb outside flutter.
+      return "http://localhost:5001/api";
+    }
+    return _isWeb()
+        ? "http://localhost:5001/api"
+        : "http://10.0.2.2:5001/api";
+  }
+
+  bool _isWeb() {
+    try {
+      // ignore: undefined_prefixed_name
+      return identical(0, 0.0) && (1.0).toString().contains('.');
+    } catch (_) {
+      return false;
+    }
+  }
 
   String? _token;
 
